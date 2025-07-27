@@ -64,8 +64,8 @@ Available commands:
 """)
 
 def register():
-    uname = input("Choose username: ").strip()
-    pwd = input("Choose password: ").strip()
+    uname = input("Choose username: ")    # Unstripped Code as intentional vulnerability.
+    pwd = input("Choose password: ")
 
     try:
         with open("config/users.json", "r+") as f:
