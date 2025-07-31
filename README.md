@@ -1,48 +1,60 @@
 # GuardedIM - Secure CLI Chat System
 
-**GuardedIM** is a secure, peer-authenticated command-line chat application that uses end-to-end encryption for direct messages (RSA) and optionally AES for channel messages. It uses a central relay server to facilitate communication and WireGuard to establish secure transport if configured.
+**GuardedIM** is a secure, peer-authenticated command-line chat application that uses end-to-end encryption for direct messages (RSA) with digital signatures, AES for channel messaging, TLS for transport security, and file sharing support. It uses a central relay server to facilitate communication.
 
 ---
 
 ## 🚀 Features
 
-- ✅ Encrypted Direct Messaging (RSA)
+- ✅ Encrypted Direct Messaging (RSA + Digital Signature)
 - ✅ Encrypted Channel Messaging (AES with per-channel derived keys)
+- ✅ File Sharing between users (Base64 over TLS)
+- ✅ TLS-secured Login and Communication
 - ✅ User Registration & Login (with bcrypt password hashing)
-- ✅ Per-user RSA keypair generation
-- ✅ Public Key Directory for DM encryption
-- ✅ Lightweight CLI interface
-- ✅ Extendable modular design
+- ✅ RSA keypair generation per user
+- ✅ Public Key Directory for DM encryption and verification
+- ✅ Command-line interface
+- ✅ Modular, secure-by-default architecture
 
 ---
 
 ## 🗂 Project Structure
 
 ```
-chat_system/
-├── relay_server.py
+CHAT_SYSTEM/
 ├── chat_client.py
-├── wg0.conf           # Sample WireGuard config (optional)
+├── relay_server.py
+├── wg0.conf               # Optional: WireGuard config
 ├── config/
-│   ├── users.json         # Registered users and password hashes
-│   └── public_keys.json   # Public keys per user for RSA encryption
+│   ├── users.json         # User accounts and password hashes
+│   └── public_keys.json   # RSA public keys per user
+├── db/
+│   └── chat_history.db    # SQLite DB (if used for logging/chat storage)
+├── messages/
+│   └── __init__.py        # Reserved for message persistence or protocol logic
 ├── utils/
-│   ├── encryption.py      # AES helpers (for channel encryption)
-│   ├── crypto_rsa.py      # RSA encryption/decryption logic
-│   └── logger.py          # Logging utility (optional)
-└── requirements.txt
+│   ├── crypto_rsa.py      # RSA encryption, signature, verification
+│   ├── encryption.py      # AES channel encryption
+│   ├── handshake.py       # TLS/handshake utilities (optional)
+│   └── logger.py          # Logging utility
+├── cert.pem               # TLS certificate (self-signed or CA)
+├── key.pem                # TLS private key
+├── .env                   # Contains channel key (optional)
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
 ## 🔐 Encryption Overview
 
-| Feature            | Method       |
-|--------------------|--------------|
-| Password Storage   | bcrypt       |
-| Direct Messages    | RSA (2048)   |
-| Channel Messages   | AES (CBC)    |
-| Key Derivation     | SHA-256      |
+| Feature            | Method                     |
+|--------------------|----------------------------|
+| Password Storage   | bcrypt                     |
+| Direct Messages    | RSA (2048-bit) + Signature |
+| Channel Messages   | AES (CBC)                  |
+| Key Derivation     | SHA-256                    |
+| Transport Layer    | TLS                        |
 
 ---
 
@@ -51,11 +63,11 @@ chat_system/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/guardedim.git
-cd guardedim
+git clone https://github.com/uma1894603/chat_system.git
+cd chat_system
 ```
 
-### 2. Create Virtual Environment & Install Requirements
+### 2. Setup Virtual Environment
 
 ```bash
 python3 -m venv venv
@@ -63,47 +75,71 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Recreate Missing Configuration Files
+### 3. Generate TLS Certificates (Optional for development)
 
-If not included, manually create:
+```bash
+openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes
+```
+
+### 4. Create Initial Configuration Files
 
 - `config/users.json`:
+
 ```json
-{{
+{
   "users": []
-}}
+}
 ```
 
 - `config/public_keys.json`:
+
 ```json
-{{
-}}
+{}
 ```
 
-### 4. Run Relay Server
+- `.env`:
+
+```env
+CHANNEL_SECRET=your_shared_channel_secret
+```
+
+### 5. Run the Server
 
 ```bash
 python relay_server.py
 ```
 
-### 5. Run Client
+### 6. Launch the Client
 
 ```bash
 python chat_client.py
 ```
 
-You can now register, login, join channels, and send messages.
+---
+
+## 📋 Command List
+
+```
+join <channel>            Join a channel
+leave <channel>           Leave a channel
+msg <channel> <message>   Send encrypted message to channel (AES)
+dm <user> <message>       Send signed encrypted direct message (RSA)
+sendfile <user> <path>    Send file (base64-encoded, over TLS)
+exit                      Exit session
+help                      Show help menu
+```
 
 ---
 
 ## 📦 Requirements
 
 - Python 3.7+
-- PyCryptodome
 - cryptography
 - bcrypt
+- python-dotenv
+- (Optional) PyCryptodome
 
-Install using:
+Install all dependencies with:
 
 ```bash
 pip install -r requirements.txt
@@ -111,40 +147,18 @@ pip install -r requirements.txt
 
 ---
 
-## 🛡 RSA Key Storage
-
-- Private keys are stored in `~/.guardedim/{{username}}_private.pem`
-- Public keys are stored in `config/public_keys.json`
-
----
-
-## 📋 Command List (Client)
-
-```
-join <channel>            Join a chat channel
-leave <channel>           Leave a chat channel
-msg <channel> <message>   Send encrypted message to a channel (AES)
-dm <user> <message>       Send encrypted direct message (RSA)
-exit                      Exit chat
-help                      Show help menu
-```
-
----
-
 ## 🧠 Notes
 
-- All messages include a UTC timestamp.
-- AES decryption failures show a warning if the key is invalid.
-- You may implement WireGuard in `wg0.conf` to create private relay tunnels.
-
----
-
-## 🧑‍💻 Authors
-
-- ChatGPT & Josmavirnia Solutions, 2025
+- RSA private keys are stored securely under `~/.guardedim/`
+- Public keys are stored in `config/public_keys.json`
+- All DMs include a digital signature for authenticity
+- TLS ensures encrypted transport even before login
+- Base64 is used to safely encode binary files during transfer
 
 ---
 
 ## 📜 License
 
 MIT License. See `LICENSE` for details.
+
+---
